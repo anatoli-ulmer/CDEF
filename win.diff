@@ -1,0 +1,41 @@
+diff --git a/setup.py b/setup.py
+index 07e5e27..b065a1f 100755
+--- a/setup.py
++++ b/setup.py
+@@ -94,7 +94,7 @@ setup(
+     long_description='',
+     packages=find_packages('src'),
+     package_dir={'':'src'},
+-    ext_modules=[Extension('CDEF/debyer', 
++    ext_modules=[Extension('debyer',
+         ['src/debyer/atomtables.c', 
+         'src/debyer/debyer.c', 
+         'src/debyer/debyer_wrap.c', 
+diff --git a/src/CDEF/CDEF_main.py b/src/CDEF/CDEF_main.py
+index ada185e..3ca429c 100644
+--- a/src/CDEF/CDEF_main.py
++++ b/src/CDEF/CDEF_main.py
+@@ -4,8 +4,8 @@
+ import numpy as np
+ 
+ #debyer module
+-from . import debyer
+-from .debyer import read_stl
++import debyer
++from   debyer import read_stl
+ 
+ #module including different point clouds
+ from . import cloud
+diff --git a/src/CDEF/cloud.py b/src/CDEF/cloud.py
+index f2ab281..8587b3d 100644
+--- a/src/CDEF/cloud.py
++++ b/src/CDEF/cloud.py
+@@ -6,7 +6,7 @@ import numpy as np
+ from scipy.spatial import distance
+ 
+ #Halton
+-from . import debyer
++import debyer
+ 
+ #Sobol
+ from . import sobol_seq

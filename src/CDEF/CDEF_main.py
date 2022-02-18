@@ -4,8 +4,8 @@
 import numpy as np
 
 #debyer module
-from . import debyer
-from .debyer import read_stl
+import debyer
+from   debyer import read_stl
 
 #module including different point clouds
 from . import cloud

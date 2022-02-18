@@ -6,7 +6,7 @@ import numpy as np
 from scipy.spatial import distance
 
 #Halton
-from . import debyer
+import debyer
 
 #Sobol
 from . import sobol_seq

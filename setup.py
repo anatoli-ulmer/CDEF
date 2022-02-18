@@ -94,7 +94,7 @@ setup(
     long_description='',
     packages=find_packages('src'),
     package_dir={'':'src'},
-    ext_modules=[Extension('CDEF/debyer', 
+    ext_modules=[Extension('debyer',
         ['src/debyer/atomtables.c', 
         'src/debyer/debyer.c', 
         'src/debyer/debyer_wrap.c', 
