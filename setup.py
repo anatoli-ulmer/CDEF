@@ -68,7 +68,7 @@ def check_for_openmp_simd():
             printf("Hello from thread %d, nthreads %d\\n", omp_get_thread_num(), omp_get_num_threads());
             float a[4] = { 0, 1, 2, 3};
             int i=0; float sum = 0.0f;
-            #pragma omp simd reduction (+:sum) leckmich
+            #pragma omp simd reduction (+:sum)
             for (i=0; i<4; i++)
                 sum += a[i];
         }
