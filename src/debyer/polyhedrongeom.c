@@ -325,8 +325,9 @@ int winding_number(int nTriangles, double *coords, Point point) {
 
 	 */
 	int winding = 0;
+	int i = 0;
 	#pragma omp parallel for reduction(+:winding)
-	for (int i=0; i<nTriangles; i++) {
+	for (i=0; i<nTriangles; i++) {
 		Point v1 = { coords[9*i + 0], coords[9*i + 1], coords[9*i + 2] };
 		Point v2 = { coords[9*i + 3], coords[9*i + 4], coords[9*i + 5] };
 		Point v3 = { coords[9*i + 6], coords[9*i + 7], coords[9*i + 8] };
