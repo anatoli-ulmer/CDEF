@@ -9,22 +9,12 @@
 #include <stdio.h>
 #endif
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 #include "debyer.h"
 #include "polyhedrongeom.h"
-
-double maxdist(size_t Natoms, dbr_atom *atoms) {
-    // compute maximum distance using OpenMP
-    double maxsqdist = 0.0;
-    #pragma omp parallel for reduction(max:maxsqdist)
-    for (size_t i=0; i<Natoms; i++) {
-        for (size_t j=0; j<i; j++) {
-            double sqdist = get_sq_dist(atoms[i].xyz, atoms[j].xyz);
-            if (sqdist > maxsqdist) { maxsqdist = sqdist; }
-        }
-    }
-
-    return sqrt(maxsqdist);
-}
 
 static inline double SQR(double x) { return x*x; }
 
@@ -34,11 +24,12 @@ double maxdist_bb(size_t Natoms, dbr_atom *atoms) {
     double minx =  atoms[0].xyz[0]; double maxx=minx;
     double miny =  atoms[0].xyz[1]; double maxy=miny;
     double minz =  atoms[0].xyz[2]; double maxz=minz;
-
+	
+	size_t i; 
     #pragma omp parallel for reduction(max:maxx) \
         reduction(max:maxy) reduction(max:maxz) \
         reduction(min:minx) reduction(min:miny) reduction(min:minz)
-    for (size_t i=0; i<Natoms; i++) {
+    for (i=0; i<Natoms; i++) {
         double x=atoms[i].xyz[0];
         double y=atoms[i].xyz[1];
         double z=atoms[i].xyz[2];
@@ -121,7 +112,6 @@ static PyObject* debyer_ff(PyObject* self, PyObject* args, PyObject * kwargs)
 
     /* compute maximum distance */
     double rcut = maxdist_bb(Natoms, atoms)*2.0;
-    //fprintf(stderr, "maxdist = %g\n", rcut);
 
     /* group atoms by weight */
     tc = dbr_get_atoms_weight(Natoms, atoms, &xa, /*store_indices=*/0);
