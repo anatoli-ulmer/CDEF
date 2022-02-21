@@ -24,11 +24,16 @@ double maxdist_bb(size_t Natoms, dbr_atom *atoms) {
     double minx =  atoms[0].xyz[0]; double maxx=minx;
     double miny =  atoms[0].xyz[1]; double maxy=miny;
     double minz =  atoms[0].xyz[2]; double maxz=minz;
-	
+
+#if defined(_MSC_VER) && !defined(__clang__)
+	/* MSVC OpenMP support sucks - it lacks max reductions */
+	int i;
+#else
 	size_t i; 
     #pragma omp parallel for reduction(max:maxx) \
         reduction(max:maxy) reduction(max:maxz) \
         reduction(min:minx) reduction(min:miny) reduction(min:minz)
+#endif
     for (i=0; i<Natoms; i++) {
         double x=atoms[i].xyz[0];
         double y=atoms[i].xyz[1];
