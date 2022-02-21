@@ -13,7 +13,7 @@ Installation
 Go to the directory where you cloned this repository and enter the following command at the command prompt:
 
 ```bash
-python3 setup.py install --user
+python3 -m pip install . --user
 ```
 
 Drop the `--user` if you want to install the package system-wide.
