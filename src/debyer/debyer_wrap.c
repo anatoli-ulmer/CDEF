@@ -168,7 +168,7 @@ static PyObject* debyer_ff(PyObject* self, PyObject* args, PyObject * kwargs)
 
     dbr_real *result = get_pattern(&rdfs, &dargs);
 
-    for (ssize_t i = 0; i < Nbins; ++i) {
+    for (Py_ssize_t i = 0; i < Nbins; ++i) {
         *((double *)(PyArray_GETPTR2(ff, i, 0))) = from + (i+0.5)*step;
         *((double *)(PyArray_GETPTR2(ff, i, 1))) = result[i]/Natoms;
 
@@ -260,7 +260,7 @@ void init_kocis_whiten() {
     halton_state.KW_Perm = malloc(sizeof(void*)*halton_state.Nprimes);
     uint64_t *kwlengths = malloc(sizeof(uint64_t)*halton_state.Nprimes);
 
-    for (ssize_t i=0; i < halton_state.Nprimes; i++) {
+    for (Py_ssize_t i=0; i < halton_state.Nprimes; i++) {
         halton_state.KW_Perm[i] = malloc(sizeof(**halton_state.KW_Perm)*halton_state.maxprime);
         kwlengths[i]=0;
     }
@@ -431,7 +431,7 @@ static PyObject* makepoints(PyObject* self, PyObject* args)
 	result =  (PyArrayObject*)PyArray_SimpleNew(2, dims, NPY_FLOAT64);
     
 	int ind = 0;
-    for (ssize_t try = 0; try < Npoints; ++try) {		
+    for (Py_ssize_t try = 0; try < Npoints; ++try) {		
 		Point p;
 		
 		if (gridpoints) {
@@ -552,7 +552,7 @@ static PyObject* findinside(PyObject* self, PyObject* args)
 	dims[0] = Npoints;
 	PyArrayObject *result = (PyArrayObject *)PyArray_SimpleNew(1, dims, NPY_BOOL);
     
-    for (ssize_t try = 0; try < Npoints; ++try) {		
+    for (Py_ssize_t try = 0; try < Npoints; ++try) {		
 		Point p;
 	
 		// retrieve the coordinates from the numpy array
@@ -619,7 +619,7 @@ static PyObject* filling_fraction(PyObject* self, PyObject* args)
 	fprintf(stderr, "Bounding Box: (%g  -  %g)  (%g  -  %g)  (%g  -  %g)\n", lower[0], upper[0], lower[1], upper[1], lower[2], upper[2]); 
 #endif
 	int ind = 0;
-    for (ssize_t try = 0; try < Npoints && ind < Npoints; ++try) {
+    for (Py_ssize_t try = 0; try < Npoints && ind < Npoints; ++try) {
 		
 		Point p;
 
