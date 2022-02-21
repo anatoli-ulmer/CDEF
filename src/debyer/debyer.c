@@ -39,7 +39,6 @@
 #endif
 
 #if defined(USE_MPI) || defined(_OPENMP)
-int dbr_nid; /* rank of process (0 if serial) */
 static int dbr_noprocs; /* number of processes (1 if serial) */
 #else
 static const int dbr_noprocs = 1;
@@ -47,6 +46,14 @@ static const int dbr_noprocs = 1;
 static time_t dbr_starttime; /* initialization time */
 int dbr_verbosity;
 
+#if defined(USE_MPI)
+int dbr_nid; /* rank of process (0 if serial) */
+#elif defined(_OPENMP)
+int dbr_nid;
+#pragma omp threadprivate(dbr_nid)
+#else
+static const int dbr_nid = 0;
+#endif
 
 inline dbr_real get_sq_dist(const dbr_real *xyz1, const dbr_real *xyz2)
 {

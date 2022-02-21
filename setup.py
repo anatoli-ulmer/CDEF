@@ -51,7 +51,7 @@ def ac_check_flag(flags, script):
     return ""
 
 
-def check_for_openmp():
+def check_for_openmp_simd():
     """Check  whether the default compiler supports OpenMP.
     This routine is adapted from yt, thanks to Nathan
     Goldbaum. See https://github.com/pynbody/pynbody/issues/124"""
@@ -66,10 +66,15 @@ def check_for_openmp():
         int main() {
             #pragma omp parallel
             printf("Hello from thread %d, nthreads %d\\n", omp_get_thread_num(), omp_get_num_threads());
+            float a[4] = { 0, 1, 2, 3};
+            int i=0; float sum = 0.0f;
+            #pragma omp simd reduction (+:sum) leckmich
+            for (i=0; i<4; i++)
+                sum += a[i];
         }
 '''
     
-    ompflags = ['-fopenmp', '/openmp']
+    ompflags = ['-fopenmp', '/openmp', '/openmp:experimental']
     
     ompflag  = ac_check_flag(ompflags, omptestprog);
 
@@ -86,7 +91,7 @@ class build_ext(_build_ext):
         _build_ext.finalize_options(self)
         print("Checking for OpenMP support...\t", end="")
 
-        extraompflag = check_for_openmp()
+        extraompflag = check_for_openmp_simd()
 
         print(" ".join(extraompflag))
 
