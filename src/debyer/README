@@ -13,6 +13,5 @@ In addition, there is a CPython wrapper (Copyright by PTB) to make it usable fro
  -debyer_wrap.c
  -polyhedrongeom.c
  -polyhedrongeom.h
- -testdebyer.py
  -Makefile
  -README (this file)

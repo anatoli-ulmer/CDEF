@@ -7,26 +7,38 @@ The software is described in detail [in this paper](https://arxiv.org/abs/2109.0
 
 This program was written at the Physikalisch-Technische Bundesanstalt (PTB) by Jerome Deumer and Christian Gollwitzer (2022) and is distributed under the terms of the GNU General Public License 3.0. 
 
-Installation
-============
-
-Go to the directory where you cloned this repository and enter the following command at the command prompt:
-
-```bash
-python3 -m pip install . --user
-```
-
-Drop the `--user` if you want to install the package system-wide.
-
 Usage
 ======
 
 The usage of CDEF for computing a scattering curve and fitting measured data is demonstrated in [CDEF\_demo.ipynb](CDEF_demo.ipynb)
 
+
+Installation
+============
+
+The recommended way is to install CDEF  via `pip`:
+
+```bash
+pip install CDEF --user
+```
+
+Drop the `--user` if you want to install the package system-wide. To ensure you use the correct python, invoke pip as
+```bash
+python3 -m pip install CDEF --user
+```
+
+where `python3` should be replaced by your Python 3 command, e.g. `python3` on most Linux installations or `python` on Anaconda for Windows. 
+
+To install from source, go to the directory where you cloned this repository and enter the following command at the command prompt:
+
+```bash
+python3 -m pip install . --user
+```
+
 System requirements
 ===================
 
-CDEF should run on most systems with Python 3 and requires a working C compiler compatible with Python. 
+CDEF should run on most systems with Python 3.6+ and requires a working C compiler compatible with Python. 
 In addition, the following Python packages are required:
 
 * NumPy
@@ -34,12 +46,6 @@ In addition, the following Python packages are required:
 * Matplotlib
 
 On Linux and macOS, most setups will work with the system C compiler. For Windows, the installation of a compatible C compiler is described [here](https://wiki.python.org/moin/WindowsCompilers).
-
-<!-- These requirements can also be fulfilled by installation of [Anaconda](https://www.anaconda.com/) and installing the compiler via -->
-<!-- ```bash
-conda install -c conda-forge c-compiler 
-``` 
-from the Anaconda command prompt. -->
 
 License
 =======
