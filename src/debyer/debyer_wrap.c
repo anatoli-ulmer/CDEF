@@ -1,3 +1,25 @@
+/*  debyer_wrap.c
+ *
+ *  (C) Copyright 2022 Physikalisch-Technische Bundesanstalt (PTB)
+ *   Christian Gollwitzer
+ *  
+ *   This file is part of CDEF.
+ *
+ *   CDEF is free software: you can redistribute it and/or modify
+ *   it under the terms of the GNU General Public License as published by
+ *   the Free Software Foundation, either version 3 of the License, or
+ *   (at your option) any later version.
+ *
+ *   CDEF is distributed in the hope that it will be useful,
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *   GNU General Public License for more details.
+ *
+ *   You should have received a copy of the GNU General Public License
+ *   along with CDEF.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ */
+
 #include <Python.h>
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #include <numpy/arrayobject.h>
@@ -9,22 +31,12 @@
 #include <stdio.h>
 #endif
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 #include "debyer.h"
 #include "polyhedrongeom.h"
-
-double maxdist(size_t Natoms, dbr_atom *atoms) {
-    // compute maximum distance using OpenMP
-    double maxsqdist = 0.0;
-    #pragma omp parallel for reduction(max:maxsqdist)
-    for (size_t i=0; i<Natoms; i++) {
-        for (size_t j=0; j<i; j++) {
-            double sqdist = get_sq_dist(atoms[i].xyz, atoms[j].xyz);
-            if (sqdist > maxsqdist) { maxsqdist = sqdist; }
-        }
-    }
-
-    return sqrt(maxsqdist);
-}
 
 static inline double SQR(double x) { return x*x; }
 
@@ -35,10 +47,16 @@ double maxdist_bb(size_t Natoms, dbr_atom *atoms) {
     double miny =  atoms[0].xyz[1]; double maxy=miny;
     double minz =  atoms[0].xyz[2]; double maxz=minz;
 
+#if defined(_MSC_VER) && !defined(__clang__)
+	/* MSVC OpenMP support sucks - it lacks max reductions */
+	int i;
+#else
+	size_t i; 
     #pragma omp parallel for reduction(max:maxx) \
         reduction(max:maxy) reduction(max:maxz) \
         reduction(min:minx) reduction(min:miny) reduction(min:minz)
-    for (size_t i=0; i<Natoms; i++) {
+#endif
+    for (i=0; i<Natoms; i++) {
         double x=atoms[i].xyz[0];
         double y=atoms[i].xyz[1];
         double z=atoms[i].xyz[2];
@@ -121,7 +139,6 @@ static PyObject* debyer_ff(PyObject* self, PyObject* args, PyObject * kwargs)
 
     /* compute maximum distance */
     double rcut = maxdist_bb(Natoms, atoms)*2.0;
-    //fprintf(stderr, "maxdist = %g\n", rcut);
 
     /* group atoms by weight */
     tc = dbr_get_atoms_weight(Natoms, atoms, &xa, /*store_indices=*/0);
@@ -173,7 +190,7 @@ static PyObject* debyer_ff(PyObject* self, PyObject* args, PyObject * kwargs)
 
     dbr_real *result = get_pattern(&rdfs, &dargs);
 
-    for (ssize_t i = 0; i < Nbins; ++i) {
+    for (Py_ssize_t i = 0; i < Nbins; ++i) {
         *((double *)(PyArray_GETPTR2(ff, i, 0))) = from + (i+0.5)*step;
         *((double *)(PyArray_GETPTR2(ff, i, 1))) = result[i]/Natoms;
 
@@ -265,7 +282,7 @@ void init_kocis_whiten() {
     halton_state.KW_Perm = malloc(sizeof(void*)*halton_state.Nprimes);
     uint64_t *kwlengths = malloc(sizeof(uint64_t)*halton_state.Nprimes);
 
-    for (ssize_t i=0; i < halton_state.Nprimes; i++) {
+    for (Py_ssize_t i=0; i < halton_state.Nprimes; i++) {
         halton_state.KW_Perm[i] = malloc(sizeof(**halton_state.KW_Perm)*halton_state.maxprime);
         kwlengths[i]=0;
     }
@@ -436,7 +453,7 @@ static PyObject* makepoints(PyObject* self, PyObject* args)
 	result =  (PyArrayObject*)PyArray_SimpleNew(2, dims, NPY_FLOAT64);
     
 	int ind = 0;
-    for (ssize_t try = 0; try < Npoints; ++try) {		
+    for (Py_ssize_t try = 0; try < Npoints; ++try) {		
 		Point p;
 		
 		if (gridpoints) {
@@ -557,7 +574,7 @@ static PyObject* findinside(PyObject* self, PyObject* args)
 	dims[0] = Npoints;
 	PyArrayObject *result = (PyArrayObject *)PyArray_SimpleNew(1, dims, NPY_BOOL);
     
-    for (ssize_t try = 0; try < Npoints; ++try) {		
+    for (Py_ssize_t try = 0; try < Npoints; ++try) {		
 		Point p;
 	
 		// retrieve the coordinates from the numpy array
@@ -624,7 +641,7 @@ static PyObject* filling_fraction(PyObject* self, PyObject* args)
 	fprintf(stderr, "Bounding Box: (%g  -  %g)  (%g  -  %g)  (%g  -  %g)\n", lower[0], upper[0], lower[1], upper[1], lower[2], upper[2]); 
 #endif
 	int ind = 0;
-    for (ssize_t try = 0; try < Npoints && ind < Npoints; ++try) {
+    for (Py_ssize_t try = 0; try < Npoints && ind < Npoints; ++try) {
 		
 		Point p;
 
