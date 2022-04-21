@@ -89,7 +89,7 @@ def scattering_mono(pt, q_ini = 0.001, q_end = 100, q_step = 0.01 , selfcorrelat
 #unitscattering - single-particle scattering profile
 #q - q-vector on which values scattering_poly will be evaluated
 #Nsamples - number of single-particle profiles that shall be sumed up
-def scattering_poly(unitscattering, q, R0, sigma, Nsamples, Gaussian=True):
+def scattering_poly(unitscattering, q, R0, sigma, Nsamples, distribution='gaussian'):
     
     volume_bounding_box = box[0]*box[1]*box[2]
 
@@ -99,10 +99,10 @@ def scattering_poly(unitscattering, q, R0, sigma, Nsamples, Gaussian=True):
     selected_dimension_bounding_box = np.amax(box) #maximal edge length for instance
     
     #Random number generator
-    if Gaussian==True:
+    if distribution=='gaussian':
         radii = np.random.normal(R0, abs(sigma), Nsamples) #number-weighted
     #lognormal distribution
-    else:
+    elif distribution=='lognormal':
         #parameters of lognormal-distributed particle size
         E = R0 #expectation value
         VAR = sigma**2 #variance
@@ -110,6 +110,8 @@ def scattering_poly(unitscattering, q, R0, sigma, Nsamples, Gaussian=True):
         sigma2 = np.sqrt(np.log(VAR/E**2 + 1))
         mu = np.log(E) - (sigma2**2)/2
         radii = np.random.lognormal(mu, sigma2, Nsamples) #number-weighted
+    else:
+        raise ValueError(f'distribution can be either gaussian or lognormal (got >{distribution})<')
     
     
     qknown = unitscattering[:, 0] 
@@ -131,9 +133,9 @@ def scattering_poly(unitscattering, q, R0, sigma, Nsamples, Gaussian=True):
 
 
 #Model function with parameters N_C, R0, sigma, c0
-def scattering_model(unitscattering, q, N_C, R0, sigma, c0, Gaussian=True):
+def scattering_model(unitscattering, q, N_C, R0, sigma, c0, distribution='gaussian'):
 
-    result = scattering_poly(unitscattering, q, R0, sigma, 3000, Gaussian) #by default, we add 3000 single-particle profiles
+    result = scattering_poly(unitscattering, q, R0, sigma, 3000, distribution) #by default, we add 3000 single-particle profiles
     
     result[:,1] *= N_C   #Constant which containes information about number concentration and electron contrast
     
@@ -146,7 +148,7 @@ def scattering_model(unitscattering, q, N_C, R0, sigma, c0, Gaussian=True):
 #Chi_squared
 #params - fit parameters
 #data - experimental data which we intend to fit
-def chi_squared(params, data, unitscattering, Gaussian=True):
+def chi_squared(params, data, unitscattering, distribution):
     
     N_C, R0, sigma, c0 = params
     
@@ -154,7 +156,7 @@ def chi_squared(params, data, unitscattering, Gaussian=True):
     I = data[:,1]
     Ierr = data[:,2]
     
-    I_theo = scattering_model(unitscattering, q, N_C, R0, sigma, c0, Gaussian)[:,1]
+    I_theo = scattering_model(unitscattering, q, N_C, R0, sigma, c0, distribution)[:,1]
     
     Chi = (1/(len(I_theo)-len(params))) * np.sum(((I - I_theo) / Ierr)**2)
 
