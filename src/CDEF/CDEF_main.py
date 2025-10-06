@@ -22,6 +22,7 @@
 #
 
 import numpy as np
+from scipy.stats import norm, lognorm
 
 #debyer module
 from . import debyer
@@ -30,6 +31,7 @@ from .debyer import read_stl
 #module including different point clouds
 from . import cloud
 from . import sobol_seq
+
 
 
 #Building cloud out arbitrary stl-files
@@ -75,7 +77,10 @@ def scattering_mono(pt, q_ini = 0.001, q_end = 100, q_step = 0.01 , selfcorrelat
     #box needs to be global since it will be used by "scattering_poly"
     global box 
     box = cloud.bounding_box(pt)
-    
+    # print(box)
+    # print(f"np.amax(box)/2 = {np.amax(box)/2}")
+
+
     #using Debyer function to speed up calculation
     #data = debyer.debyer_ff(pt, nob, bin_init, bin_end, q_ini, q_end, q_step)
     data = debyer.debyer_ff(pt, q_ini, q_end, q_step, 
@@ -131,11 +136,104 @@ def scattering_poly(unitscattering, q, R0, sigma, Nsamples, distribution='gaussi
     return np.column_stack((q, result))
 
 
+def scattering_poly_pdf(unitscattering, q, R0, sigma, Nsamples=1000, distribution='gaussian'):
+    
+    volume_bounding_box = box[0]*box[1]*box[2]
+
+    volume_of_cloud = volume_bounding_box * filling_factor
+    
+    #particle dimension(s) that shall be rescaled/fitted
+    selected_dimension_bounding_box = np.amax(box) #maximal edge length for instance
+    
+    #Random number generator
+    if distribution=='gaussian':
+        # radii = np.random.normal(R0, abs(sigma), Nsamples) #number-weighted
+        radii = np.linspace(np.max([0, R0-6*sigma]), R0+6*sigma, Nsamples)
+        pdf = norm.pdf(radii, loc=R0, scale=sigma)
+    #lognormal distribution
+    elif distribution=='lognormal':
+        #parameters of lognormal-distributed particle size
+        E = R0 #expectation value
+        VAR = sigma**2 #variance
+        #parameters of normal-distributed log(particle size)
+        sigma2 = np.sqrt(np.log(VAR/E**2 + 1))
+        mu = np.log(E) - (sigma2**2)/2
+        median = np.exp(mu)
+        radii = np.logspace(np.log10(median/500), np.log10(median*100), Nsamples)
+        # radii = np.logspace(np.log10(1e-10), np.log10(2000e-9), Nsamples+1)
+        pdf = lognorm.pdf(radii, s=sigma2, scale=median)
+        # radii = np.random.lognormal(mu, sigma2, Nsamples) #number-weighted
+    else:
+        raise ValueError(f'distribution can be either gaussian or lognormal (got >{distribution})<')
+    
+    # normalize pdf to account for numerical inaccuracy
+    # r and pdf may contain NaNs
+    mask = np.isfinite(pdf) * np.isfinite(radii)  # True for finite values
+    # Normalize
+    pdf /= np.trapz(pdf[mask], radii[mask])
+    
+    qknown = unitscattering[:, 0] 
+    Ilog   = np.log(unitscattering[:,1])
+    
+    result = np.zeros_like(q) 
+    
+    #Summing up single-particle profiles
+    for i, radius in enumerate(radii):
+        rscaled = radius / (selected_dimension_bounding_box / 2) 
+        qscaled = qknown / rscaled
+        Iscaled = np.exp(np.interp(q, qscaled, Ilog)) * (volume_of_cloud * rscaled**3)**2
+        result += Iscaled * pdf[i]
+    
+    return np.column_stack((q, result))
+
+
+def scattering_poly(unitscattering, q, R0, sigma, Nsamples, distribution='gaussian'):
+    
+    volume_bounding_box = box[0]*box[1]*box[2]
+
+    volume_of_cloud = volume_bounding_box * filling_factor
+    
+    #particle dimension(s) that shall be rescaled/fitted
+    selected_dimension_bounding_box = np.amax(box) #maximal edge length for instance
+    
+    #Random number generator
+    if distribution=='gaussian':
+        radii = np.random.normal(R0, abs(sigma), Nsamples) #number-weighted
+    #lognormal distribution
+    elif distribution=='lognormal':
+        #parameters of lognormal-distributed particle size
+        E = R0 #expectation value
+        VAR = sigma**2 #variance
+        #parameters of normal-distributed log(particle size)
+        sigma2 = np.sqrt(np.log(VAR/E**2 + 1))
+        mu = np.log(E) - (sigma2**2)/2
+        radii = np.random.lognormal(mu, sigma2, Nsamples) #number-weighted
+    else:
+        raise ValueError(f'distribution can be either gaussian or lognormal (got >{distribution})<')
+    
+    
+    qknown = unitscattering[:, 0] 
+    Ilog   = np.log(unitscattering[:,1])
+    
+    result = np.zeros_like(q) 
+    
+    #Summing up single-particle profiles
+    for radius in radii:
+        rscaled = radius / (selected_dimension_bounding_box / 2) 
+        qscaled = qknown / rscaled
+        Iscaled = np.exp(np.interp(q, qscaled, Ilog)) * (volume_of_cloud * rscaled**3)**2
+        result += Iscaled 
+    
+    result = result / Nsamples
+    
+    return np.column_stack((q, result))
+
 
 #Model function with parameters N_C, R0, sigma, c0
 def scattering_model(unitscattering, q, N_C, R0, sigma, c0, distribution='gaussian'):
 
-    result = scattering_poly(unitscattering, q, R0, sigma, 3000, distribution) #by default, we add 3000 single-particle profiles
+    # result = scattering_poly(unitscattering, q, R0, sigma, 3000, distribution) #by default, we add 3000 single-particle profiles
+    result = scattering_poly_pdf(unitscattering, q, R0, sigma, 1000, distribution) #by default, we add 3000 single-particle profiles
     
     result[:,1] *= N_C   #Constant which containes information about number concentration and electron contrast
     
@@ -163,3 +261,68 @@ def chi_squared(params, data, unitscattering, distribution):
 
     return Chi
 
+
+#Chi_squared
+#params - fit parameters
+#data - experimental data which we intend to fit
+def chi_squared_model(params, data, model, model_args, distribution):
+    
+    N_C, R0, sigma, c0, *model_params = params # variable number of model parameters
+    
+    q = data[:,0]
+    I = data[:,1]
+    Ierr = data[:,2]
+    
+    if isinstance(model_args, dict):
+        unitscattering = model(*model_params, **model_args)  # Call the user-defined model function
+    elif isinstance(model_args, tuple):
+        unitscattering = model(*model_params, *model_args)  # Call the user-defined model function
+    else:
+        raise ValueError("model_args must be a dictionary or a tuple")
+    
+
+    I_theo = scattering_model(unitscattering, q, N_C, R0, sigma, c0, distribution)[:,1]
+    
+    Chi = (1/(len(I_theo)-len(params))) * np.sum(((I - I_theo) / Ierr)**2)
+
+
+    return Chi
+
+
+def neg_log_likelihood(theta, data, model, model_args, distribution):
+    """
+    theta: array of parameters [N_C, R0, sigma, c0, ...model_params, log_f]
+    data: (n,3) array with columns [q, I, Ierr]
+    model: function for unit scattering
+    distribution: type of distribution (e.g. Gaussian)
+    """
+
+    # Unpack parameters
+    N_C, R0, sigma, c0, log_f, *model_params  = theta
+
+    if isinstance(model_args, dict):
+        if len(model_params) > 0:
+            unitscattering = model(*model_params, **model_args)  # Call the user-defined model function
+        else:
+            unitscattering = model(**model_args)  # Call the user-defined model function
+    elif isinstance(model_args, tuple):
+        if len(model_params) > 0:
+            unitscattering = model(*model_params, *model_args)  # Call the user-defined model function
+        else:
+            unitscattering = model(*model_args)  # Call the user-defined model function
+    else:
+        raise ValueError("model_args must be a dictionary or a tuple")
+
+    q = data[:, 0]
+    I = data[:, 1]
+    Ierr = data[:, 3]
+
+    # Compute theoretical intensity
+    I_Mod = scattering_model(unitscattering, q, N_C, R0, sigma, c0, distribution)[:, 1]
+    # I_Mod = c0 + N_C * scattering_poly(unitscattering, q, R0, sigma, 3000, distribution)[:, 1]
+
+    # Variance model (same form as linear example, adapt if needed)
+    sigma2 = Ierr**2 + I_Mod**2 * np.exp(2 * log_f)
+
+    # negative Gaussian log-likelihood
+    return - (-0.5 * np.sum((I - I_Mod) ** 2 / sigma2 + np.log(sigma2)))
