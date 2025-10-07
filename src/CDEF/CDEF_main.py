@@ -136,6 +136,90 @@ def scattering_poly(unitscattering, q, R0, sigma, Nsamples, distribution='gaussi
     return np.column_stack((q, result))
 
 
+def lognormal_pdf(mean, std, N=1000, k=10):
+    """
+    Generate a lognormal PDF on a logarithmically spaced grid.
+
+    Parameters
+    ----------
+    mu : float
+        Mean of the underlying normal distribution (of ln(x)).
+    std : float
+        Standard deviation of the underlying normal distribution (of ln(x)).
+    N : int
+        Number of points in the grid.
+    k : float
+        Range multiplier for how many sigma to include.
+
+    Returns
+    -------
+    x : ndarray
+        Log-spaced grid.
+    pdf : ndarray
+        Corresponding lognormal PDF values.
+    """
+
+    sigma = np.sqrt(np.log(std**2/mean**2 + 1))
+    mu = np.log(mean) - (sigma**2)/2
+    
+    mode = np.exp(mu - sigma**2) # sample around mode for symmetry
+
+    xmin = np.exp(np.log(mode) - k*sigma)
+    xmax = np.exp(np.log(mode) + k*sigma)
+
+    # logarithmically spaced grid
+    x = np.logspace(np.log10(xmin), np.log10(xmax), N)
+
+    # Scipy uses shape parameter = sigma, scale = exp(mu)
+    pdf = lognorm.pdf(x, s=sigma, scale=np.exp(mu))
+
+    # normalize numerically to ensure ∫pdf dx = 1
+    # r and pdf may contain NaNs
+    mask = np.isfinite(pdf) * np.isfinite(x)  # True for finite values
+    pdf /= np.trapz(pdf[mask], x[mask])
+
+    return x, pdf
+
+
+def normal_pdf(mean, std, N=1000, k=10):
+    """
+    Generate a normal PDF on a linearly spaced grid.
+
+    Parameters
+    ----------
+    mean : float
+        Mean of the normal distribution.
+    std : float
+        Standard deviation of the normal distribution.
+    N : int
+        Number of points in the grid.
+    k : float
+        Range multiplier for how many sigma to include.
+
+    Returns
+    -------
+    x : ndarray
+        Linearly spaced grid.
+    pdf : ndarray
+        Corresponding normal PDF values.
+    """
+
+    xmin = np.max([0, mean - k*std])  # avoid negative radii
+    xmax = mean + k*std
+
+    # linearly spaced grid
+    x = np.linspace(xmin, xmax, N)
+
+    pdf = norm.pdf(x, loc=mean, scale=std)
+
+    # normalize numerically to ensure ∫pdf dx = 1
+    # r and pdf may contain NaNs
+    mask = np.isfinite(pdf) * np.isfinite(x)  # True for finite values
+    pdf /= np.trapz(pdf[mask], x[mask])
+
+    return x, pdf
+
+
 def scattering_poly_pdf(unitscattering, q, R0, sigma, Nsamples=1000, distribution='gaussian'):
     
     volume_bounding_box = box[0]*box[1]*box[2]
@@ -147,22 +231,10 @@ def scattering_poly_pdf(unitscattering, q, R0, sigma, Nsamples=1000, distributio
     
     #Random number generator
     if distribution=='gaussian':
-        # radii = np.random.normal(R0, abs(sigma), Nsamples) #number-weighted
-        radii = np.linspace(np.max([0, R0-6*sigma]), R0+6*sigma, Nsamples)
-        pdf = norm.pdf(radii, loc=R0, scale=sigma)
+        radii, pdf = normal_pdf(R0, sigma, N=Nsamples)
     #lognormal distribution
     elif distribution=='lognormal':
-        #parameters of lognormal-distributed particle size
-        E = R0 #expectation value
-        VAR = sigma**2 #variance
-        #parameters of normal-distributed log(particle size)
-        sigma2 = np.sqrt(np.log(VAR/E**2 + 1))
-        mu = np.log(E) - (sigma2**2)/2
-        median = np.exp(mu)
-        radii = np.logspace(np.log10(median/500), np.log10(median*100), Nsamples)
-        # radii = np.logspace(np.log10(1e-10), np.log10(2000e-9), Nsamples+1)
-        pdf = lognorm.pdf(radii, s=sigma2, scale=median)
-        # radii = np.random.lognormal(mu, sigma2, Nsamples) #number-weighted
+        radii, pdf = lognormal_pdf(R0, sigma, N=Nsamples)
     else:
         raise ValueError(f'distribution can be either gaussian or lognormal (got >{distribution})<')
     
@@ -175,7 +247,7 @@ def scattering_poly_pdf(unitscattering, q, R0, sigma, Nsamples=1000, distributio
     qknown = unitscattering[:, 0] 
     Ilog   = np.log(unitscattering[:,1])
     
-    result = np.zeros_like(q) 
+    result = np.zeros_like(q)
     
     #Summing up single-particle profiles
     for i, radius in enumerate(radii):
