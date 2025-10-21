@@ -324,7 +324,7 @@ def chi_squared(params, data, unitscattering, distribution):
     
     q = data[:,0]
     I = data[:,1]
-    Ierr = data[:,2]
+    Ierr = data[:,3]
     
     I_theo = scattering_model(unitscattering, q, N_C, R0, sigma, c0, distribution)[:,1]
     
@@ -343,7 +343,7 @@ def chi_squared_model(params, data, model, model_args, distribution):
     
     q = data[:,0]
     I = data[:,1]
-    Ierr = data[:,2]
+    Ierr = data[:,3]
     
     if isinstance(model_args, dict):
         unitscattering = model(*model_params, **model_args)  # Call the user-defined model function
@@ -361,7 +361,33 @@ def chi_squared_model(params, data, model, model_args, distribution):
     return Chi
 
 
-def neg_log_likelihood(theta, data, model, model_args, distribution):
+def neg_log_likelihood(theta, data, unitscattering, distribution):
+    """
+    theta: array of parameters [N_C, R0, sigma, c0, ...model_params, log_f]
+    data: (n,3) array with columns [q, I, Ierr]
+    model: function for unit scattering
+    distribution: type of distribution (e.g. Gaussian)
+    """
+
+    # Unpack parameters
+    N_C, R0, sigma, c0, log_f = theta
+
+    q = data[:, 0]
+    I = data[:, 1]
+    Ierr = data[:, 3]
+
+    # Compute theoretical intensity
+    I_Mod = scattering_model(unitscattering, q, N_C, R0, sigma, c0, distribution)[:, 1]
+    # I_Mod = c0 + N_C * scattering_poly(unitscattering, q, R0, sigma, 3000, distribution)[:, 1]
+
+    # Variance model (same form as linear example, adapt if needed)
+    sigma2 = Ierr**2 + I_Mod**2 * np.exp(2 * log_f)
+
+    # negative Gaussian log-likelihood
+    return - (-0.5 * np.sum((I - I_Mod) ** 2 / sigma2 + np.log(sigma2)))
+
+
+def neg_log_likelihood_model(theta, data, model, model_args, distribution):
     """
     theta: array of parameters [N_C, R0, sigma, c0, ...model_params, log_f]
     data: (n,3) array with columns [q, I, Ierr]
@@ -385,16 +411,4 @@ def neg_log_likelihood(theta, data, model, model_args, distribution):
     else:
         raise ValueError("model_args must be a dictionary or a tuple")
 
-    q = data[:, 0]
-    I = data[:, 1]
-    Ierr = data[:, 3]
-
-    # Compute theoretical intensity
-    I_Mod = scattering_model(unitscattering, q, N_C, R0, sigma, c0, distribution)[:, 1]
-    # I_Mod = c0 + N_C * scattering_poly(unitscattering, q, R0, sigma, 3000, distribution)[:, 1]
-
-    # Variance model (same form as linear example, adapt if needed)
-    sigma2 = Ierr**2 + I_Mod**2 * np.exp(2 * log_f)
-
-    # negative Gaussian log-likelihood
-    return - (-0.5 * np.sum((I - I_Mod) ** 2 / sigma2 + np.log(sigma2)))
+    return neg_log_likelihood((N_C, R0, sigma, c0, log_f), data, unitscattering, distribution)
