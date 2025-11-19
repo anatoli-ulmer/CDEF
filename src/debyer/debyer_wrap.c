@@ -351,7 +351,7 @@ static PyObject* kwhalton_wrap(PyObject* self, PyObject* args)
     }
 
 
-    Py_INCREF(result);
+    // Py_INCREF(result);
     return (PyObject*)result;
 }
 
@@ -725,7 +725,7 @@ static PyObject* read_stl(PyObject* self, PyObject* args)
 
 	free(stl_raw);
 
-	Py_INCREF(result);
+	// Py_INCREF(result);
 	return (PyObject *)result;
 }
 

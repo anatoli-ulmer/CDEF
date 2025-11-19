@@ -22,8 +22,7 @@
 #
 
 import numpy as np
-from scipy.stats import norm, lognorm, qmc
-import trimesh
+from scipy.stats import norm, lognorm
 
 #debyer module
 from . import debyer
@@ -33,7 +32,7 @@ from .debyer import read_stl
 from . import cloud
 from . import sobol_seq
 
-import gc
+
 
 #Building cloud out arbitrary stl-files
 #mesh as 3D tensor with rows as edge point coordinates
@@ -47,73 +46,6 @@ def bounding_box_mesh(mesh):
     return abs(np.array([x_size, y_size, z_size])) 
 
 
-def box_from_mesh(mesh):
-    # mesh: (T, 3, 3)
-    V = mesh.reshape(-1, 3)           # (T*3, 3) – all vertices stacked
-    vmin = V.min(axis=0)              # [xmin, ymin, zmin]
-    vmax = V.max(axis=0)              # [xmax, ymax, zmax]
-    size = vmax - vmin                # [Δx, Δy, Δz]
-    return size
-
-
-def volume_from_mesh(mesh: np.ndarray) -> float:
-    """
-    mesh: (T,3,3) array, each tri = [[x1,y1,z1],[x2,y2,z2],[x3,y3,z3]]
-    Returns the absolute enclosed volume.
-    """
-    p0 = mesh[:, 0, :]
-    p1 = mesh[:, 1, :]
-    p2 = mesh[:, 2, :]
-    # V = sum( p0 · (p1 × p2) ) / 6
-    vol = np.einsum('ij,ij->i', p0, np.cross(p1, p2)) / 6.0
-    return float(abs(vol.sum()))
-
-
-def robust_volume_from_mesh(mesh: np.ndarray, pitch: float | None = None) -> float:
-    """
-    - Tries exact volume if watertight.
-    - Otherwise, voxelizes with pitch (defaults to ~1% of smallest AABB side).
-    - Veeeery slow compared to volume_from_mesh, so only use when it's really necessary!
-    """
-    # Build an indexed mesh from triangle coordinates
-    V = mesh.reshape(-1, 3)
-    # Deduplicate vertices (tolerance helps with near-duplicates)
-    # You can adjust decimals if your data is very smooth/noisy.
-    Vq = np.round(V, decimals=10)
-    uniq, inv = np.unique(Vq, axis=0, return_inverse=True)
-    F = inv.reshape(-1, 3)
-
-    mesh = trimesh.Trimesh(vertices=uniq, faces=F, process=True)
-
-    if mesh.is_watertight:
-        return float(mesh.volume)
-
-    # Not watertight → approximate via voxelization
-    # Choose pitch if not given: ~1% of the smallest AABB side
-    if pitch is None:
-        aabb = mesh.bounds  # [[xmin,ymin,zmin],[xmax,ymax,zmax]]
-        size = (aabb[1] - aabb[0])
-        pitch = float(size.min() * 0.01) if size.min() > 0 else 1e-3
-
-    vox = mesh.voxelized(pitch=pitch)
-    return float(vox.volume)
-
-
-def mesh_to_unitscattering(mesh, N, sequence='halton', selfcorrelation=True, bg_subtraction=True):
-    cloud = stl_cloud(mesh, N, sequence='halton')
-    unitcurve = scattering_mono(cloud, selfcorrelation=True)
-    unitscattering = {}
-    unitscattering['unitcurve'] = unitcurve
-    if selfcorrelation and bg_subtraction:
-        unitscattering['unitcurve'][:,1] -= 1/N
-        # unitscattering['unitcurve'][:,1] -= np.min(unitscattering['unitcurve'][:,1]*.99)
-    unitscattering['box'] = box_from_mesh(mesh)
-    unitscattering['volume'] = volume_from_mesh(mesh)
-    unitscattering['filling_factor'] = unitscattering['volume'] / ( unitscattering['box'][0] * unitscattering['box'][1] * unitscattering['box'][2] )
-    unitscattering['N'] = N
-
-    return unitscattering
-
 #point cloud and corresponding filling fraction of arbitrary particle mesh
 #N - number of scatterers
 #returns cloud + filling factor
@@ -121,7 +53,7 @@ def stl_cloud(mesh, N, sequence='halton'):
     
     generators = {
             'halton': lambda N : debyer.kwhalton(N, 3),
-            'sobol':  lambda N : qmc.Sobol(d=3).random(n=N),
+            'sobol':  lambda N : sobol_seq.i4_sobol_generate(3, N),
             'random': lambda N : np.random.rand(N, 3)}
 
     generator = generators[sequence]
@@ -131,18 +63,18 @@ def stl_cloud(mesh, N, sequence='halton'):
     # debyer.halton_reset()
     pointcloud = debyer.makepoints(mesh, cube) 
     
-    # filling_factor = len(pointcloud) / N
+    filling_factor = len(pointcloud) / N
     
-    return pointcloud
+    return pointcloud, filling_factor
 
 
 #Computation of single-particle scattering profile using numerical Debye integration
 #q-interval goes from q_ini to q_end in q_step steps
 #nob - number of bins of the pair distance histogram
 #bin_range (init -> end) of empty bins
-def scattering_mono(pt, q_ini = 0.001, q_end = 100, q_step = 0.01, selfcorrelation=True, rbins=1000, cutoff = 0, sinc_damp = 0, zerobinstart = 0, zerobinend = -1):
+def scattering_mono(pt, filling_factor, q_ini = 0.001, q_end = 100, q_step = 0.01 , selfcorrelation=True, rbins=1000, cutoff = 0, sinc_damp = 0, zerobinstart = 0, zerobinend = -1):
     
-    # box = cloud.bounding_box(pt)
+    box = cloud.bounding_box(pt)
     # print(f"np.amax(box)/2 = {np.amax(box)/2}")
 
 
@@ -152,10 +84,9 @@ def scattering_mono(pt, q_ini = 0.001, q_end = 100, q_step = 0.01, selfcorrelati
             selfcorrelation = selfcorrelation, rbins=rbins, 
             cutoff = cutoff, sinc_damp = sinc_damp,
             zerobinstart = zerobinstart, zerobinend = zerobinend)   
-    
-    # data = np.ones((2,rbins))
-    # unitscattering = {'data': data, 'box': box, 'filling_factor': filling_factor}
-    return data
+ 
+    unitscattering = {'data': data, 'box': box, 'filling_factor': filling_factor}
+    return unitscattering
 
 #Poly-disperse scattering profiles according to specific size distribution with mean R0 and std sigma
 #unitscattering - single-particle scattering profile
@@ -186,8 +117,8 @@ def scattering_poly(unitscattering, q, R0, sigma, Nsamples, distribution='gaussi
         raise ValueError(f'distribution can be either gaussian or lognormal (got >{distribution})<')
     
     
-    qknown = unitscattering['unitcurve'][:, 0] 
-    Ilog   = np.log(unitscattering['unitcurve'][:, 1])
+    qknown = unitscattering['data'][:, 0] 
+    Ilog   = np.log(unitscattering['data'][:,1])
     
     result = np.zeros_like(q) 
     
@@ -209,7 +140,7 @@ def lognormal_pdf(mean, std, N=1000, k=10):
 
     Parameters
     ----------
-    mean : float
+    mu : float
         Mean of the underlying normal distribution (of ln(x)).
     std : float
         Standard deviation of the underlying normal distribution (of ln(x)).
@@ -313,9 +244,9 @@ def scattering_poly_pdf(unitscattering, q, R0, sigma, Nsamples=1000, distributio
     # Normalize
     pdf /= np.trapz(pdf, radii)
     dr = np.gradient(radii)
-    
-    qknown = unitscattering['unitcurve'][:, 0] 
-    Ilog   = np.log(unitscattering['unitcurve'][:,1])
+
+    qknown = unitscattering['data'][:, 0] 
+    Ilog   = np.log(unitscattering['data'][:,1])
     
     result = np.zeros_like(q)
     
@@ -354,8 +285,8 @@ def scattering_poly(unitscattering, q, R0, sigma, Nsamples, distribution='gaussi
         raise ValueError(f'distribution can be either gaussian or lognormal (got >{distribution})<')
     
     
-    qknown = unitscattering['unitcurve'][:, 0] 
-    Ilog   = np.log(unitscattering['unitcurve'][:,1])
+    qknown = unitscattering['data'][:, 0] 
+    Ilog   = np.log(unitscattering['data'][:,1])
     
     result = np.zeros_like(q) 
     
@@ -448,8 +379,6 @@ def neg_log_likelihood(theta, data, unitscattering, distribution):
 
     # Compute theoretical intensity
     I_Mod = scattering_model(unitscattering, q, N_C, R0, sigma, c0, distribution)[:, 1]
-    # del unitscattering
-    # gc.collect()
     # I_Mod = c0 + N_C * scattering_poly(unitscattering, q, R0, sigma, 3000, distribution)[:, 1]
 
     # Variance model (same form as linear example, adapt if needed)
@@ -458,10 +387,6 @@ def neg_log_likelihood(theta, data, unitscattering, distribution):
     # negative Gaussian log-likelihood
     return - (-0.5 * np.sum((I - I_Mod) ** 2 / sigma2 + np.log(sigma2)))
 
-# import tracemalloc
-# tracemalloc.start()
-
-from functools import lru_cache
 
 def neg_log_likelihood_model(theta, data, model, model_args, distribution):
     """
@@ -470,12 +395,6 @@ def neg_log_likelihood_model(theta, data, model, model_args, distribution):
     model: function for unit scattering
     distribution: type of distribution (e.g. Gaussian)
     """
-
-    # before = tracemalloc.get_traced_memory()[1]
-
-    # @lru_cache(maxsize=128)
-    # def cached_unitscattering(*params):
-    #     return model(*params, **model_args)
 
     # Unpack parameters
     N_C, R0, sigma, c0, log_f, *model_params  = theta
@@ -492,8 +411,5 @@ def neg_log_likelihood_model(theta, data, model, model_args, distribution):
             unitscattering = model(*model_args)  # Call the user-defined model function
     else:
         raise ValueError("model_args must be a dictionary or a tuple")
-    
-    # after = tracemalloc.get_traced_memory()[1]
-    # print("Allocation delta:", after - before)
 
     return neg_log_likelihood((N_C, R0, sigma, c0, log_f), data, unitscattering, distribution)
