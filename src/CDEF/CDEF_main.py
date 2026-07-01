@@ -33,8 +33,6 @@ from .debyer import read_stl
 from . import cloud
 from . import sobol_seq
 
-import gc
-
 #Building cloud out arbitrary stl-files
 #mesh as 3D tensor with rows as edge point coordinates
 def bounding_box_mesh(mesh):
@@ -105,7 +103,9 @@ def mesh_to_unitscattering(mesh, N, sequence='halton', selfcorrelation=True, bg_
     unitscattering = {}
     unitscattering['unitcurve'] = unitcurve
     if selfcorrelation and bg_subtraction:
-        unitscattering['unitcurve'][:,1] -= 1/N
+        # unitscattering['unitcurve'][:,1] -= 1/N
+        # avoid negative values
+        unitscattering['unitcurve'][:,1] -= np.min([np.min(unitscattering['unitcurve'][:,1])*.99, 1/N])
         # unitscattering['unitcurve'][:,1] -= np.min(unitscattering['unitcurve'][:,1]*.99)
     unitscattering['box'] = box_from_mesh(mesh)
     unitscattering['volume'] = volume_from_mesh(mesh)
@@ -155,6 +155,10 @@ def scattering_mono(pt, q_ini = 0.001, q_end = 100, q_step = 0.01, selfcorrelati
     
     # data = np.ones((2,rbins))
     # unitscattering = {'data': data, 'box': box, 'filling_factor': filling_factor}
+
+    N_pt = len(pt)
+    data[:,1] -= np.min([np.min(data[:,1])*.99, 1/N_pt])
+
     return data
 
 #Poly-disperse scattering profiles according to specific size distribution with mean R0 and std sigma
@@ -448,18 +452,15 @@ def neg_log_likelihood(theta, data, unitscattering, distribution):
 
     # Compute theoretical intensity
     I_Mod = scattering_model(unitscattering, q, N_C, R0, sigma, c0, distribution)[:, 1]
-    # del unitscattering
-    # gc.collect()
+
     # I_Mod = c0 + N_C * scattering_poly(unitscattering, q, R0, sigma, 3000, distribution)[:, 1]
 
     # Variance model (same form as linear example, adapt if needed)
-    sigma2 = Ierr**2 + I_Mod**2 * np.exp(2 * log_f)
+    sigma_squared = Ierr**2 + I_Mod**2 * np.exp(2 * log_f)
 
     # negative Gaussian log-likelihood
-    return - (-0.5 * np.sum((I - I_Mod) ** 2 / sigma2 + np.log(sigma2)))
+    return - (-0.5 * np.sum((I - I_Mod) ** 2 / sigma_squared + np.log(sigma_squared)))
 
-# import tracemalloc
-# tracemalloc.start()
 
 from functools import lru_cache
 
