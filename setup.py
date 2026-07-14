@@ -117,9 +117,9 @@ long_description = (this_directory / "README.md").read_text()
 
 setup(
     name='CDEF',
-    version='1.1',
-    author='Jerome Deumer',
-    author_email='jerome.deumer@ptb.de',
+    version='1.2',
+    author='Jerome Deumer, Anatoli Ulmer',
+    author_email='jerome.deumer@ptb.de, anatoli.ulmer@ptb.de',
     description='Compute small-angle scattering form factors for arbitrary shapes',
     classifiers=[
         'Development Status :: 4 - Beta',

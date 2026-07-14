@@ -1,25 +1,23 @@
 Metadata-Version: 2.4
 Name: CDEF
 Version: 1.1
-Summary: Compute small-angle scattering form factors for arbitrary shapes
-Author: Jerome Deumer
-Author-email: jerome.deumer@ptb.de
-Classifier: Development Status :: 4 - Beta
-Classifier: Intended Audience :: Science/Research
-Classifier: Topic :: Scientific/Engineering :: Physics
-Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
-Classifier: Programming Language :: Python :: 3
+Summary: Your package description
+Author: Jerome Deumer, Anatoli Ulmer
+Author-email: jerome.deumer@ptb.de, anatoli.ulmer@ptb.de
 Requires-Python: >=3.6
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: numpy<2
+Requires-Dist: scipy
+Requires-Dist: matplotlib
+Requires-Dist: pandas
+Requires-Dist: lmfit
+Requires-Dist: numba
+Requires-Dist: trimesh
 Dynamic: author
 Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
 Dynamic: license-file
 Dynamic: requires-python
-Dynamic: summary
 
 CDEF (*C*omputing *D*ebye's scattering formula for *E*xtraordinary *F*ormfactors)
 ====

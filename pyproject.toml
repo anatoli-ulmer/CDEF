@@ -1,9 +1,24 @@
 [build-system]
-requires = ["setuptools", "wheel", "oldest-supported-numpy"]
+requires = [
+    "setuptools>=61",
+    "wheel",
+    "numpy<2"
+]
+build-backend = "setuptools.build_meta"
 
-[tool.cibuildwheel]
-skip = ["pp*", "*musllinux*"]
-archs = ["auto64"]
-build-verbosity = 1
+[project]
+name = "CDEF"
+version = "1.1"
+description = "Your package description"
+readme = "README.md"
+requires-python = ">=3.12"
 
-
+dependencies = [
+    "numpy<2",
+    "scipy",
+    "matplotlib",
+    "pandas",
+    "lmfit",
+    "numba",
+    "trimesh",
+]

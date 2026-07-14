@@ -11,6 +11,7 @@ src/CDEF.egg-info/PKG-INFO
 src/CDEF.egg-info/SOURCES.txt
 src/CDEF.egg-info/dependency_links.txt
 src/CDEF.egg-info/not-zip-safe
+src/CDEF.egg-info/requires.txt
 src/CDEF.egg-info/top_level.txt
 src/debyer/atomtables.c
 src/debyer/debyer.c
