@@ -5,7 +5,7 @@ This is a Python package to approximately calculate scattering profiles of arbit
 
 The software is described in detail [in this paper](https://arxiv.org/abs/2109.06570).
 
-This program was written at the Physikalisch-Technische Bundesanstalt (PTB) by Jerome Deumer and Christian Gollwitzer (2022) and is distributed under the terms of the GNU General Public License 3.0. 
+This program was written at the Physikalisch-Technische Bundesanstalt (PTB) by Jerome Deumer and Christian Gollwitzer (2022) and Anatoli Ulmer (2026) and is distributed under the terms of the GNU General Public License 3.0. 
 
 Usage
 ======
@@ -49,7 +49,7 @@ On Linux and macOS, most setups will work with the system C compiler. For Window
 
 License
 =======
-This program was written at the Physikalisch-Technische Bundesanstalt (PTB) by Jerome Deumer and Christian Gollwitzer (2022) and is distributed under the terms of the GNU General Public License 3.0. 
+This program was written at the Physikalisch-Technische Bundesanstalt (PTB) by Jerome Deumer and Christian Gollwitzer (2022) and Anatoli Ulmer (2026) and is distributed under the terms of the GNU General Public License 3.0. 
 
     CDEF is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
