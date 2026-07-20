@@ -376,10 +376,12 @@ def scattering_poly(unitscattering, q, R0, sigma, Nsamples, distribution='gaussi
 
 
 #Model function with parameters N_C, R0, sigma, c0
-def scattering_model(unitscattering, q, N_C, R0, sigma, c0, distribution='gaussian'):
+def scattering_model(unitscattering, q, N_C, R0, sigma, c0, distribution='gaussian', polymodel='pdf'):
 
-    # result = scattering_poly(unitscattering, q, R0, sigma, 3000, distribution) #by default, we add 3000 single-particle profiles
-    result = scattering_poly_pdf(unitscattering, q, R0, sigma, 1000, distribution) #by default, we add 3000 single-particle profiles
+    if polymodel == 'random':
+        result = scattering_poly(unitscattering, q, R0, sigma, 3000, distribution) #by default, we add 3000 single-particle profiles
+    elif polymodel == 'pdf':
+        result = scattering_poly_pdf(unitscattering, q, R0, sigma, 1000, distribution) #by default, we add 3000 single-particle profiles
     
     result[:,1] *= N_C   #Constant which containes information about number concentration and electron contrast
     
@@ -398,7 +400,7 @@ def chi_squared(params, data, unitscattering, distribution):
     
     q = data[:,0]
     I = data[:,1]
-    Ierr = data[:,3]
+    Ierr = data[:,-1]
     
     I_theo = scattering_model(unitscattering, q, N_C, R0, sigma, c0, distribution)[:,1]
     
@@ -417,7 +419,7 @@ def chi_squared_model(params, data, model, model_args, distribution):
     
     q = data[:,0]
     I = data[:,1]
-    Ierr = data[:,3]
+    Ierr = data[:,-1]
     
     if isinstance(model_args, dict):
         unitscattering = model(*model_params, **model_args)  # Call the user-defined model function
