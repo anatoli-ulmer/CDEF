@@ -1,24 +1,15 @@
 import numpy as np
-import os
 from pathlib import Path
 import yaml
-import time
-import pickle
-from datetime import datetime
 
 import CDEF
 import numpy as np
-import scipy.optimize
-from scipy.optimize import root, Bounds, differential_evolution
 from scipy.spatial import ConvexHull
-
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-import matplotlib.ticker as ticker
-from matplotlib.ticker import ScalarFormatter, NullFormatter
 
 from build123d import Solid, Shell, Face, Wire, export_stl
 from build123d import BuildPart, Circle, RegularPolygon, BuildSketch, offset, loft, Plane, chamfer, mirror, fillet, Axis
+
+from .cdef_utils import build123d_to_mesh
 
 
 
@@ -94,25 +85,6 @@ def bipyramid2(fillet_radius, R, h, base_corners=5):
         mirror(about=Plane.XY)
 
     return bipy
-    
-
-def build123d_to_mesh(shape, tolerance=1e-3):
-    all_tris = []
-    for f in shape.faces():
-        tess = f.tessellate(tolerance)
-        # Case 1: tess returns (vertices, triangles)
-        if isinstance(tess, tuple) and len(tess) == 2:
-            vertices, triangles = tess
-            # Convert each vertex to (x,y,z)
-            coords = [ (v.X, v.Y, v.Z) if hasattr(v, "X") else tuple(v) for v in vertices ]
-            for tri in triangles:
-                all_tris.append([ coords[i] for i in tri ])
-        # Case 2: tess returns list of triangles directly
-        else:
-            for tri in tess:
-                # Convert each Vector to tuple if needed
-                all_tris.append([ (v.X, v.Y, v.Z) if hasattr(v, "X") else tuple(v) for v in tri ])
-    return np.array(all_tris, dtype=np.float64)
 
 
 def bipy_curve(fillet_radius, radius, height, base_corners=5, N=30000, model='bipyramid2'):
