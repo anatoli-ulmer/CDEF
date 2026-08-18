@@ -4,7 +4,7 @@ from build123d import Box, fillet
 from .cdef_utils import build123d_to_mesh
 
 
-def cube(fillet_radius, side_length):
+def cube(fillet_radius, side_length=1):
     """
     Create a cube with optional rounded edges.
 
@@ -24,7 +24,7 @@ def cube(fillet_radius, side_length):
     cube = Box(side_length, side_length, side_length)
 
     if fillet_radius > 0:
-        max_r = cube.max_fillet(cube.edges())
+        max_r = side_length / 2
         r = min(fillet_radius, 0.99 * max_r)
 
         while True:
@@ -36,7 +36,7 @@ def cube(fillet_radius, side_length):
 
     return cube
 
-def cube_curve(fillet_radius, side_length, N=30000):
+def cube_curve(fillet_radius, side_length=1, N=30000):
     cube_shape = cube(fillet_radius, side_length)
 
     mesh = build123d_to_mesh(cube_shape)
