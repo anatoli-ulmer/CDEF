@@ -3,10 +3,6 @@
 #
 #  (C) Copyright 2022 Physikalisch-Technische Bundesanstalt (PTB)
 #  Jerome Deumer
-# 
-#  Edited:
-#  (C) Copyright 2026 Physikalisch-Technische Bundesanstalt (PTB)
-#  Anatoli Ulmer
 #  
 #   This file is part of CDEF.
 #
@@ -211,7 +207,7 @@ def scattering_poly(unitscattering, q, R0, sigma, Nsamples, distribution='gaussi
     return np.column_stack((q, result))
 
 
-def lognormal_pdf(mean, std, N=1000, k=5):
+def lognormal_pdf(mean, std, N=1000, k=10):
     """
     Generate a lognormal PDF on a logarithmically spaced grid.
 
@@ -251,12 +247,12 @@ def lognormal_pdf(mean, std, N=1000, k=5):
     # normalize numerically to ensure ∫pdf dx = 1
     # r and pdf may contain NaNs
     mask = np.isfinite(pdf) * np.isfinite(x)  # True for finite values
-    pdf /= np.trapz(pdf[mask], x[mask])
+    pdf /= np.trapezoid(pdf[mask], x[mask])
 
     return x, pdf
 
 
-def normal_pdf(mean, std, N=1000, k=5):
+def normal_pdf(mean, std, N=1000, k=10):
     """
     Generate a normal PDF on a linearly spaced grid.
 
@@ -290,95 +286,50 @@ def normal_pdf(mean, std, N=1000, k=5):
     # normalize numerically to ensure ∫pdf dx = 1
     # r and pdf may contain NaNs
     mask = np.isfinite(pdf) * np.isfinite(x)  # True for finite values
-    pdf /= np.trapz(pdf[mask], x[mask])
+    pdf /= np.trapezoid(pdf[mask], x[mask])
 
     return x, pdf
 
 
-def scattering_poly_pdf(
-    unitscattering,
-    q,
-    R0,
-    sigma,
-    Nsamples=1000,
-    distribution='gaussian'
-):
+def scattering_poly_pdf(unitscattering, q, R0, sigma, Nsamples=1000, distribution='gaussian'):
+    
+    volume_bounding_box = unitscattering['box'][0]*unitscattering['box'][1]*unitscattering['box'][2]
 
-    volume_bounding_box = (
-        unitscattering['box'][0]
-        * unitscattering['box'][1]
-        * unitscattering['box'][2]
-    )
-
-    volume_of_cloud = (
-        volume_bounding_box
-        * unitscattering['filling_factor']
-    )
-
-    selected_dimension_bounding_box = np.amax(unitscattering['box'])
-
-    qknown = unitscattering['unitcurve'][:, 0]
-    Ilog = np.log(unitscattering['unitcurve'][:, 1])
-
-    # --------------------------------------------------
-    # Monodisperse case
-    # --------------------------------------------------
-    if sigma < 1e-6 * R0:
-
-        radii = np.array([R0])
-        weights = np.array([1.0])
-
-    # --------------------------------------------------
-    # Polydisperse case
-    # --------------------------------------------------
+    volume_of_cloud = volume_bounding_box * unitscattering['filling_factor']
+    
+    #particle dimension(s) that shall be rescaled/fitted
+    selected_dimension_bounding_box = np.amax(unitscattering['box']) #maximal edge length for instance
+    
+    #Random number generator
+    if distribution=='gaussian':
+        radii, pdf = normal_pdf(R0, sigma, N=Nsamples)
+    #lognormal distribution
+    elif distribution=='lognormal':
+        radii, pdf = lognormal_pdf(R0, sigma, N=Nsamples)
     else:
-
-        if distribution == 'gaussian':
-            radii, pdf = normal_pdf(R0, sigma, N=Nsamples)
-
-        elif distribution == 'lognormal':
-            radii, pdf = lognormal_pdf(R0, sigma, N=Nsamples)
-
-        else:
-            raise ValueError(
-                f"distribution can be either gaussian or lognormal "
-                f"(got >{distribution})<"
-            )
-
-        mask = np.isfinite(pdf) & np.isfinite(radii)
-
-        radii = radii[mask]
-        pdf = pdf[mask]
-
-        if len(radii) < 2:
-            raise ValueError(
-                f"Too few radius points for R0={R0}, sigma={sigma}"
-            )
-
-        pdf /= np.trapz(pdf, radii)
-
-        # Integration weights
-        weights = pdf * np.gradient(radii)
-
-    # --------------------------------------------------
-    # Calculate scattering
-    # --------------------------------------------------
-
+        raise ValueError(f'distribution can be either gaussian or lognormal (got >{distribution})<')
+    
+    # normalize pdf to account for numerical inaccuracy
+    # r and pdf may contain NaNs
+    mask = np.isfinite(pdf) * np.isfinite(radii)  # True for finite values
+    pdf = pdf[mask]
+    radii = radii[mask]
+    # Normalize
+    pdf /= np.trapezoid(pdf, radii)
+    dr = np.gradient(radii)
+    
+    qknown = unitscattering['unitcurve'][:, 0] 
+    Ilog   = np.log(unitscattering['unitcurve'][:,1])
+    
     result = np.zeros_like(q)
-
-    for radius, weight in zip(radii, weights):
-
-        rscaled = radius / (selected_dimension_bounding_box / 2)
-
+    
+    #Summing up single-particle profiles
+    for i, radius in enumerate(radii):
+        rscaled = radius / (selected_dimension_bounding_box / 2) 
         qscaled = qknown / rscaled
-
-        Iscaled = (
-            np.exp(np.interp(q, qscaled, Ilog))
-            * (volume_of_cloud * rscaled**3)**2
-        )
-
-        result += Iscaled * weight
-
+        Iscaled = np.exp(np.interp(q, qscaled, Ilog)) * (volume_of_cloud * rscaled**3)**2
+        result += Iscaled * pdf[i] * dr[i]
+    
     return np.column_stack((q, result))
 
 
@@ -444,10 +395,8 @@ def scattering_model(unitscattering, q, N_C, R0, sigma, c0, distribution='gaussi
 #params - fit parameters
 #data - experimental data which we intend to fit
 def chi_squared(params, data, unitscattering, distribution):
-
+    
     N_C, R0, sigma, c0 = params
-    if any(p <= 0 for p in [N_C, R0, sigma]): 
-        return 1e12  # Return a massive penalty value
     
     q = data[:,0]
     I = data[:,1]

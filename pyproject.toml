@@ -1,24 +1,51 @@
 [build-system]
 requires = [
-    "setuptools>=61",
+    "setuptools>=80",
     "wheel",
-    "numpy<2"
+    "numpy>=2.0",
 ]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "CDEF"
-version = "1.1"
-description = "Your package description"
+version = "1.2.1"
+description = "Compute small-angle scattering form factors for arbitrary shapes"
 readme = "README.md"
 requires-python = ">=3.12"
-
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Jerome Deumer" },
+    { name = "Christian Gollwitzer" },
+    { name = "Anatoli Ulmer" },
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
 dependencies = [
-    "numpy<2",
+    "numpy>=2.0",
     "scipy",
     "matplotlib",
+    "trimesh",
+    "PyYAML",
+    "build123d",
+]
+
+[project.optional-dependencies]
+examples = [
     "pandas",
     "lmfit",
-    "numba",
-    "trimesh",
+    "jupyter",
 ]
+
+[project.urls]
+Repository = "https://github.com/anatoli-ulmer/CDEF"
+
+[tool.setuptools.packages.find]
+where = ["src"]
